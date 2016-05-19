@@ -15,9 +15,36 @@ zero =
     Vector 0 0 0
 
 
+rejectFrom : Vector -> Vector -> Vector
+rejectFrom axis v =
+    decomposeAlong axis v |> snd
+
+
+projectTo : Vector -> Vector -> Vector
+projectTo axis v =
+    decomposeAlong axis v |> fst
+
+
+decomposeAlong : Vector -> Vector -> ( Vector, Vector )
+decomposeAlong axis v =
+    let
+        projection =
+            scale (dot axis v) (unit axis)
+
+        rejection =
+            sub v projection
+    in
+        ( projection, rejection )
+
+
 length : Vector -> Float
 length a =
     sqrt (dot a a)
+
+
+unit : Vector -> Vector
+unit v =
+    scale (1 / length v) v
 
 
 sum : List Vector -> Vector
