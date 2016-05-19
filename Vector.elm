@@ -28,8 +28,11 @@ projectTo axis v =
 decomposeAlong : Vector -> Vector -> ( Vector, Vector )
 decomposeAlong axis v =
     let
+        axis =
+            unit axis
+
         projection =
-            scale (dot axis v) (unit axis)
+            scale (dot axis v) axis
 
         rejection =
             sub v projection
