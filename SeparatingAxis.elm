@@ -3,8 +3,9 @@
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
-module SeparatingAxis exposing (Body(..), Axis, Distance, Sphere, Face, find)
+module SeparatingAxis exposing (Body(..), Axis, Distance, find)
 
+import Shapes exposing (Sphere, Face)
 import Vector exposing (Vector)
 
 
@@ -19,16 +20,6 @@ type alias Distance =
 type Body
     = Ball Sphere
     | Faces (List Face)
-
-
-type alias Sphere =
-    { at : Vector, radius : Float }
-
-
-type alias Face =
-    { at : Vector
-    , spans : ( Vector, Vector )
-    }
 
 
 {-| Returns a list of all the axes that could be separating along with the
