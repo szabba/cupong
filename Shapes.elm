@@ -18,5 +18,45 @@ type alias Face =
     }
 
 
+type alias Plane =
+    { at : Vector
+    , normal : Vector
+    }
+
+
 type alias Line =
     { from : Vector, to : Vector }
+
+
+planeLineIntersection : Plane -> Line -> Maybe Vector
+planeLineIntersection { at, normal } { from, to } =
+    let
+        both f ( x, y ) =
+            ( f x, f y )
+
+        endsOnOppositeSides =
+            let
+                ( localFrom, localTo ) =
+                    ( from `Vector.sub` at
+                    , to `Vector.sub` at
+                    )
+            in
+                (localFrom `Vector.dot` normal) * (localTo `Vector.dot` normal) < 0
+    in
+        if endsOnOppositeSides then
+            let
+                line =
+                    to `Vector.sub` from
+
+                ( toPrj, fromPrj ) =
+                    ( to, from )
+                        |> both (Vector.projectTo normal >> Vector.length)
+
+                intersection =
+                    line
+                        |> Vector.scale (fromPrj / (fromPrj + toPrj))
+                        |> Vector.add from
+            in
+                Just intersection
+        else
+            Nothing
