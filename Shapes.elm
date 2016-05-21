@@ -60,3 +60,31 @@ planeLineIntersection { at, normal } { from, to } =
                 Just intersection
         else
             Nothing
+
+
+cutLine : Plane -> Line -> Maybe { front : Line, back : Line }
+cutLine ({ at, normal } as plane) ({ from, to } as line) =
+    let
+        both f ( x, y ) =
+            ( f x, f y )
+
+        ( localTo, localFrom ) =
+            ( to, from )
+                |> both (flip Vector.sub at)
+
+        withIntersection intersection =
+            if localTo `Vector.dot` normal > 0 then
+                Just
+                    { front = { line | from = intersection }
+                    , back = { line | to = intersection }
+                    }
+            else if localFrom `Vector.dot` normal > 0 then
+                Just
+                    { front = { line | to = intersection }
+                    , back = { line | from = intersection }
+                    }
+            else
+                Nothing
+    in
+        planeLineIntersection plane line
+            |> flip Maybe.andThen withIntersection
