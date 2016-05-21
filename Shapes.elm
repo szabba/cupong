@@ -16,3 +16,7 @@ type alias Face =
     { at : Vector
     , spans : ( Vector, Vector )
     }
+
+
+type alias Line =
+    { from : Vector, to : Vector }
