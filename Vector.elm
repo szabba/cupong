@@ -92,3 +92,16 @@ cross a b =
             )
     in
         Vector x y z
+
+
+rotate : { axis : Vector, angle : Float } -> Vector -> Vector
+rotate { axis, angle } v =
+    let
+        ( prj, rej ) =
+            decomposeAlong axis v
+    in
+        sum
+            [ rej |> scale (cos angle)
+            , (unit axis `cross` rej) |> scale (sin angle)
+            , prj
+            ]
