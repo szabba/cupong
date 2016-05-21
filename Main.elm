@@ -5,24 +5,24 @@
 
 module Main exposing (..)
 
+import Html exposing (Attribute)
 import Html.App as App
 import Html.Attributes as AHtml
 import Svg exposing (Svg)
 import Svg.Attributes as ASvg
 import Task
 import Window
+import Bouncy
+import Vector exposing (Vector)
 
 
 main : Program Never
 main =
     App.program
-        { init =
-            ( init
-            , Task.perform (\_ -> Debug.crash "initial window size") Resize Window.size
-            )
+        { init = init
         , update = \msg model -> update msg model ! []
         , view = view
-        , subscriptions = always <| Window.resizes Resize
+        , subscriptions = subscriptions
         }
 
 
@@ -31,14 +31,49 @@ main =
 
 
 type alias Model =
-    { width : Int, height : Int }
-
-
-init : Model
-init =
-    { width = 0
-    , height = 0
+    { window : WindowSize
+    , bouncy : Bouncy.Model
     }
+
+
+type alias WindowSize =
+    { width : Int
+    , height : Int
+    }
+
+
+init : ( Model, Cmd Message )
+init =
+    let
+        withEmptyWindow bouncy =
+            { window =
+                { width = 0
+                , height = 0
+                }
+            , bouncy = bouncy
+            }
+    in
+        case Bouncy.init { radius = 10, halfDiagonal = Vector 300 300 300 } of
+            Ok ( model, cmd ) ->
+                (model |> withEmptyWindow)
+                    ! [ cmd |> Cmd.map BouncyMsg
+                      , Task.perform (\_ -> Debug.crash "initial window size") Resize Window.size
+                      ]
+
+            Err msg ->
+                Debug.crash msg
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Message
+subscriptions model =
+    Sub.batch
+        [ Window.resizes Resize
+        , Bouncy.subscriptions model.bouncy |> Sub.map BouncyMsg
+        ]
 
 
 
@@ -47,13 +82,17 @@ init =
 
 type Message
     = Resize { width : Int, height : Int }
+    | BouncyMsg Bouncy.Message
 
 
 update : Message -> Model -> Model
 update msg model =
     case msg of
-        Resize { width, height } ->
-            { model | width = width, height = height }
+        Resize window ->
+            { model | window = window }
+
+        BouncyMsg msg ->
+            { model | bouncy = Bouncy.update msg model.bouncy }
 
 
 
@@ -61,12 +100,13 @@ update msg model =
 
 
 view : Model -> Svg msg
-view model =
-    window model []
+view { window, bouncy } =
+    wrapWindow window
+        [ viewSphere window bouncy.ball ]
 
 
-window : Model -> List (Svg msg) -> Svg msg
-window { width, height } =
+wrapWindow : WindowSize -> List (Svg msg) -> Svg msg
+wrapWindow { width, height } =
     Svg.svg
         [ ASvg.version "1.1"
         , ASvg.baseProfile "full"
@@ -80,6 +120,57 @@ window { width, height } =
         ]
 
 
+viewSphere : WindowSize -> Bouncy.Ball -> Svg msg
+viewSphere { width, height } ball =
+    let
+        both f ( x, y ) =
+            ( f x, f y )
+
+        ( cx, cy ) =
+            ( width, height )
+                |> both (toFloat >> flip (/) 2)
+                |> (\( x, y ) -> ( x + ball.sphere.at.x, y + ball.sphere.at.y ))
+                |> both (round >> toString)
+    in
+        Svg.circle
+            [ ASvg.cx cx
+            , ASvg.cy cy
+            , ASvg.r <| toString <| round <| ball.sphere.radius
+            , stroke
+            , strokeWidth
+            , fill
+            ]
+            []
+
+
+centeredSphere : WindowSize -> Svg msg
+centeredSphere { width, height } =
+    Svg.circle
+        [ ASvg.cx <| toString <| width // 2
+        , ASvg.cy <| toString <| height // 2
+        , ASvg.r <| toString <| flip (//) 20 <| min width height
+        , stroke
+        , strokeWidth
+        , fill
+        ]
+        []
+
+
+fill : Attribute msg
+fill =
+    ASvg.fill background
+
+
+stroke : Attribute msg
+stroke =
+    ASvg.stroke "#000000"
+
+
+strokeWidth : Attribute msg
+strokeWidth =
+    ASvg.strokeWidth <| toString 5
+
+
 background : String
 background =
-    "#F5DEB3"
+    "#FFFFFF"

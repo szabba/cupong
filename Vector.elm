@@ -10,6 +10,11 @@ type alias Vector =
     { x : Float, y : Float, z : Float }
 
 
+toList : Vector -> List Float
+toList { x, y, z } =
+    [ x, y, z ]
+
+
 zero : Vector
 zero =
     Vector 0 0 0
