@@ -33,26 +33,56 @@ type alias Box =
     }
 
 
+type Error
+    = BallWontFit
+
+
 init :
     { radius : Float
     , halfDiagonal : Vector
     }
-    -> Result String ( Model, Cmd Message )
+    -> ( Model, Cmd Message, List Error )
 init config =
-    if config.halfDiagonal |> Vector.toList |> List.all ((<) config.radius) then
-        let
-            sphere =
-                Sphere Vector.zero config.radius
+    let
+        errors =
+            [ ( config.halfDiagonal |> Vector.toList |> List.all ((<) config.radius)
+              , BallWontFit
+              )
+            ]
+                |> List.filter fst
+                |> List.map snd
 
-            ball =
-                Ball sphere Vector.zero
+        safeConfig =
+            if List.isEmpty errors then
+                config
+            else
+                { radius = 10
+                , halfDiagonal = Vector 300 300 300
+                }
 
-            box =
-                Box Vector.zero config.halfDiagonal
-        in
-            Ok <| ( Model ball box, resetVelocity 0.7 )
-    else
-        Err "The ball can't fit into the box!"
+        ( model, cmd ) =
+            unsafeInit config
+    in
+        ( model, cmd, errors )
+
+
+unsafeInit :
+    { radius : Float
+    , halfDiagonal : Vector
+    }
+    -> ( Model, Cmd Message )
+unsafeInit config =
+    let
+        sphere =
+            Sphere Vector.zero config.radius
+
+        ball =
+            Ball sphere Vector.zero
+
+        box =
+            Box Vector.zero config.halfDiagonal
+    in
+        ( Model ball box, resetVelocity 0.3 )
 
 
 resetVelocity : Float -> Cmd Message

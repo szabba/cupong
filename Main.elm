@@ -52,16 +52,14 @@ init =
                 }
             , bouncy = bouncy
             }
-    in
-        case Bouncy.init { radius = 10, halfDiagonal = Vector 300 300 300 } of
-            Ok ( model, cmd ) ->
-                (model |> withEmptyWindow)
-                    ! [ cmd |> Cmd.map BouncyMsg
-                      , Task.perform (\_ -> Debug.crash "initial window size") Resize Window.size
-                      ]
 
-            Err msg ->
-                Debug.crash msg
+        ( model, cmd, _ ) =
+            Bouncy.init { radius = 10, halfDiagonal = Vector 300 300 300 }
+    in
+        (model |> withEmptyWindow)
+            ! [ cmd |> Cmd.map BouncyMsg
+              , Task.perform (\_ -> Debug.crash "initial window size") Resize Window.size
+              ]
 
 
 
