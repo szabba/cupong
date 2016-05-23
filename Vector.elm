@@ -20,6 +20,21 @@ zero =
     Vector 0 0 0
 
 
+x : Vector
+x =
+    Vector 1 0 0
+
+
+y : Vector
+y =
+    Vector 0 1 0
+
+
+z : Vector
+z =
+    Vector 0 0 1
+
+
 rejectFrom : Vector -> Vector -> Vector
 rejectFrom axis v =
     decomposeAlong axis v |> snd

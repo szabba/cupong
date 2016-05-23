@@ -132,45 +132,39 @@ nextCollision box ball =
         innerBox =
             { box | halfDiagonal = box.halfDiagonal `Vector.sub` Vector radius radius radius }
 
-        collisionIn rMax r v f =
-            if (f v) < 0 then
-                (negate (f rMax) - f r) / f v
-            else
-                (f rMax - f r) / f v
+        collisionAlong baseVector =
+            let
+                ( rMax, r, v ) =
+                    ( Vector.dot baseVector innerBox.halfDiagonal
+                    , Vector.dot baseVector ball.sphere.at
+                    , Vector.dot baseVector ball.velocity
+                    )
 
-        collisionInComponent =
-            collisionIn innerBox.halfDiagonal ball.sphere.at ball.velocity
+                flip other =
+                    Vector.decomposeAlong baseVector other
+                        |> \( prj, rej ) -> Vector.negate prj `Vector.add` rej
 
-        minBy conv one other =
-            if conv one < conv other then
-                one
-            else
-                other
+                distance =
+                    if v < 0 then
+                        -rMax - r
+                    else
+                        rMax - r
 
-        flipBy : (Vector -> Float) -> (Float -> Vector -> Vector) -> Vector -> Vector
-        flipBy get set v =
-            v |> set (v |> get |> negate)
+                time =
+                    distance / v
+            in
+                ( flip, time )
 
         minByTime =
             minBy snd
 
-        ( flipVelocity, time ) =
-            ( flipBy .x (\x v -> { v | x = x })
-            , collisionInComponent .x
-            )
-                `minByTime` ( flipBy .y (\y v -> { v | y = y })
-                            , collisionInComponent .y
-                            )
-                `minByTime` ( flipBy .z (\z v -> { v | z = z })
-                            , collisionInComponent .z
-                            )
+        ( flipVector, time ) =
+            collisionAlong Vector.x `minByTime` collisionAlong Vector.y `minByTime` collisionAlong Vector.z
 
         flipBall ball =
-            { ball | velocity = ball.velocity |> flipVelocity }
+            { ball | velocity = ball.velocity |> flipVector }
     in
-        ( ball |> dumbIntegrate time |> flipBall
-        , time
-        )
+        ( ball |> dumbIntegrate time |> flipBall, time )
 
 
 dumbIntegrate : Time -> Ball -> Ball
@@ -186,3 +180,11 @@ dumbIntegrate time ball =
             Sphere at ball.sphere.radius
     in
         { ball | sphere = sphere }
+
+
+minBy : (a -> comparable) -> a -> a -> a
+minBy conv one other =
+    if conv one < conv other then
+        one
+    else
+        other
