@@ -102,35 +102,49 @@ update msg model =
 view : Model -> Svg msg
 view { window, bouncy } =
     wrapWindow window
-        [ viewSphere window bouncy.ball ]
-
-
-wrapWindow : WindowSize -> List (Svg msg) -> Svg msg
-wrapWindow { width, height } =
-    Svg.svg
-        [ ASvg.version "1.1"
-        , ASvg.baseProfile "full"
-        , ASvg.width <| toString <| width
-        , ASvg.height <| toString <| height
-        , AHtml.attribute "xmlns" "http://www.w3.org/2000/svg"
-        , AHtml.style
-            [ (,) "background" background
-            , (,) "display" "block"
-            ]
+        [ viewBox bouncy.box
+        , viewSphere bouncy.ball
         ]
 
 
-viewSphere : WindowSize -> Bouncy.Ball -> Svg msg
-viewSphere { width, height } ball =
+wrapWindow : WindowSize -> List (Svg msg) -> Svg msg
+wrapWindow { width, height } elements =
+    let
+        baseAttributes =
+            [ ASvg.version "1.1"
+            , ASvg.baseProfile "full"
+            , ASvg.width <| toString <| width
+            , ASvg.height <| toString <| height
+            , AHtml.attribute "xmlns" "http://www.w3.org/2000/svg"
+            ]
+
+        size =
+            [ ASvg.width <| toString <| width
+            , ASvg.height <| toString <| height
+            ]
+
+        styling =
+            [ AHtml.style
+                [ (,) "background" background
+                , (,) "display" "block"
+                ]
+            ]
+
+        centering =
+            [ ASvg.transform <| "translate(" ++ toString (width // 2) ++ " " ++ toString (height // 2) ++ ")" ]
+    in
+        Svg.svg (baseAttributes ++ size ++ styling) [ Svg.g centering elements ]
+
+
+viewSphere : Bouncy.Ball -> Svg msg
+viewSphere ball =
     let
         both f ( x, y ) =
             ( f x, f y )
 
         ( cx, cy ) =
-            ( width, height )
-                |> both (toFloat >> flip (/) 2)
-                |> (\( x, y ) -> ( x + ball.sphere.at.x, y + ball.sphere.at.y ))
-                |> both (round >> toString)
+            ( .x, .y )
+                |> both ((|>) ball.sphere.at >> round >> toString)
     in
         Svg.circle
             [ ASvg.cx cx
@@ -143,15 +157,16 @@ viewSphere { width, height } ball =
             []
 
 
-centeredSphere : WindowSize -> Svg msg
-centeredSphere { width, height } =
-    Svg.circle
-        [ ASvg.cx <| toString <| width // 2
-        , ASvg.cy <| toString <| height // 2
-        , ASvg.r <| toString <| flip (//) 20 <| min width height
+viewBox : Bouncy.Box -> Svg msg
+viewBox box =
+    Svg.rect
+        [ ASvg.x <| toString <| negate <| abs <| box.halfDiagonal.x
+        , ASvg.y <| toString <| negate <| abs <| box.halfDiagonal.y
+        , ASvg.width <| toString <| (*) 2 <| abs <| box.halfDiagonal.x
+        , ASvg.height <| toString <| (*) 2 <| abs <| box.halfDiagonal.y
         , stroke
         , strokeWidth
-        , fill
+        , ASvg.fillOpacity "0"
         ]
         []
 
