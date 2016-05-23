@@ -139,9 +139,6 @@ wrapWindow { width, height } elements =
 viewSphere : Bouncy.Ball -> Svg msg
 viewSphere ball =
     let
-        both f ( x, y ) =
-            ( f x, f y )
-
         ( cx, cy ) =
             ( .x, .y )
                 |> both ((|>) ball.sphere.at >> round >> toString)
@@ -159,16 +156,28 @@ viewSphere ball =
 
 viewBox : Bouncy.Box -> Svg msg
 viewBox box =
-    Svg.rect
-        [ ASvg.x <| toString <| negate <| abs <| box.halfDiagonal.x
-        , ASvg.y <| toString <| negate <| abs <| box.halfDiagonal.y
-        , ASvg.width <| toString <| (*) 2 <| abs <| box.halfDiagonal.x
-        , ASvg.height <| toString <| (*) 2 <| abs <| box.halfDiagonal.y
-        , stroke
-        , strokeWidth
-        , ASvg.fillOpacity "0"
-        ]
-        []
+    let
+        param f attr component =
+            attr <| toString <| f <| abs <| component <| box.halfDiagonal
+
+        start =
+            param negate
+
+        dim =
+            param ((*) 2)
+
+        shape =
+            [ start ASvg.x .x, start ASvg.y .y, dim ASvg.width .x, dim ASvg.height .y ]
+
+        style =
+            [ stroke, strokeWidth, ASvg.fillOpacity "0" ]
+    in
+        Svg.rect (shape ++ style) []
+
+
+both : (a -> b) -> ( a, a ) -> ( b, b )
+both f ( x, y ) =
+    ( f x, f y )
 
 
 fill : Attribute msg
