@@ -6,6 +6,7 @@
 module SeparatingAxis exposing (Body(..), Axis, Distance, find)
 
 import Shapes exposing (Sphere, Face)
+import SeparatingAxis.Shadow as Shadow exposing (Shadow)
 import Vector exposing (Vector)
 
 
@@ -58,16 +59,16 @@ distanceAlong : Axis -> Body -> Body -> Distance
 distanceAlong axis oneBody otherBody =
     let
         shadowsOf =
-            shadows axis
+            shadowsAlong axis
     in
-        List.map2 distance (shadowsOf oneBody) (shadowsOf otherBody)
+        List.map2 Shadow.distance (shadowsOf oneBody) (shadowsOf otherBody)
             |> List.sort
             |> List.head
             |> Maybe.withDefault 0
 
 
-shadows : Axis -> Body -> List Shadow
-shadows axis body =
+shadowsAlong : Axis -> Body -> List Shadow
+shadowsAlong axis body =
     case body of
         Ball { at, radius } ->
             { from = Vector.dot at axis - radius
@@ -76,69 +77,24 @@ shadows axis body =
                 |> flip (::) []
 
         Faces faces ->
-            faces |> List.map (faceShadow axis)
+            faces |> List.map (faceShadowAlong axis)
 
 
-faceShadow : Axis -> Face -> Shadow
-faceShadow axis { at, spans } =
+faceShadowAlong : Axis -> Face -> Shadow
+faceShadowAlong axis { at, spans } =
     let
-        ( a, b ) =
-            spans
-
-        addPoint point ({ from, delta } as shadow) =
-            if point < from then
-                { shadow | from = point }
-            else if from + delta < point then
-                { shadow | delta = point - from }
-            else
-                shadow
+        alongAxis =
+            Vector.dot (Vector.unit axis)
 
         init =
-            Vector.dot axis at
+            Shadow.emptyAt (alongAxis at)
+
+        ( a, b ) =
+            spans
     in
         [ at `Vector.add` a
         , at `Vector.add` b
         , at `Vector.add` a `Vector.add` b
         ]
-            |> List.map (Vector.dot axis)
-            |> List.foldl addPoint (Shadow init init)
-
-
-distance : Shadow -> Shadow -> Distance
-distance one other =
-    let
-        fixDirections ( a, b ) =
-            ( a |> fixShadowDirection, b |> fixShadowDirection )
-
-        sort ( a, b ) =
-            if a.from > b.from then
-                ( a, b )
-            else
-                ( b, a )
-
-        shift ( a, b ) =
-            ( { a | from = 0 }, { b | from = b.from - a.from } )
-
-        difference ( { delta }, b ) =
-            if delta < b.from then
-                b.from - delta
-            else
-                0
-    in
-        ( one, other )
-            |> fixDirections
-            |> sort
-            |> shift
-            |> difference
-
-
-fixShadowDirection : Shadow -> Shadow
-fixShadowDirection ({ from, delta } as shadow) =
-    if delta < 0 then
-        Shadow (from + delta) -delta
-    else
-        shadow
-
-
-type alias Shadow =
-    { from : Float, delta : Float }
+            |> List.map alongAxis
+            |> List.foldl Shadow.extendTo init
