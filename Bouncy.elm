@@ -50,7 +50,9 @@ init :
 init config =
     let
         errors =
-            [ ( config.halfDiagonal |> Vector.toList |> List.all ((<) config.radius)
+            [ ( config.halfDiagonal
+                    |> Vector.toList
+                    |> List.all ((<) config.radius)
               , BallWontFit
               )
             ]
