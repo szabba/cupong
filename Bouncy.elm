@@ -8,6 +8,7 @@ module Bouncy exposing (Model, Ball, Box, Message(..), init, update, subscriptio
 import Random
 import Time exposing (Time)
 import AnimationFrame
+import Tuple3
 import Shapes exposing (Sphere)
 import Vector exposing (Vector)
 
@@ -35,6 +36,10 @@ type alias Box =
 
 type Error
     = BallWontFit
+
+
+type alias Distance =
+    Float
 
 
 init :
@@ -162,39 +167,44 @@ nextCollision box ball =
         innerBox =
             { box | halfDiagonal = box.halfDiagonal `Vector.sub` Vector radius radius radius }
 
-        collisionAlong baseVector =
-            let
-                ( rMax, r, v ) =
-                    ( Vector.dot baseVector innerBox.halfDiagonal
-                    , Vector.dot baseVector ball.sphere.at
-                    , Vector.dot baseVector ball.velocity
-                    )
-
-                flip other =
-                    Vector.decomposeAlong baseVector other
-                        |> \( prj, rej ) -> Vector.negate prj `Vector.add` rej
-
-                distance =
-                    if v < 0 then
-                        -rMax - r
-                    else
-                        rMax - r
-
-                time =
-                    distance / v
-            in
-                ( flip, time )
+        along =
+            collision1D
+                { ranges = innerBox.halfDiagonal
+                , at = ball.sphere.at
+                , velocity = ball.velocity
+                }
 
         minByTime =
             minBy snd
 
         ( flipVector, time ) =
-            collisionAlong Vector.x `minByTime` collisionAlong Vector.y `minByTime` collisionAlong Vector.z
+            along Vector.x `minByTime` along Vector.y `minByTime` along Vector.z
 
         flipBall ball =
             { ball | velocity = ball.velocity |> flipVector }
     in
         ( ball |> dumbIntegrate time |> flipBall, time )
+
+
+collision1D : { ranges : Vector, at : Vector, velocity : Vector } -> Vector -> ( Vector -> Vector, Distance )
+collision1D system axis =
+    let
+        ( xMax, x, vx ) =
+            system
+                |> tuple3.repeat
+                |> Tuple3.mapEach .ranges .at .velocity
+                |> Tuple3.mapAll (Vector.dot <| Vector.unit axis)
+
+        flip =
+            Vector.decomposeAlong axis
+                >> \( prj, rej ) -> Vector.negate prj `Vector.add` rej
+    in
+        ( flip
+        , if vx < 0 then
+            (-xMax - x) / vx
+          else
+            (xMax - x) / vx
+        )
 
 
 dumbIntegrate : Time -> Ball -> Ball
@@ -218,3 +228,8 @@ minBy conv one other =
         one
     else
         other
+
+
+tuple3 : { repeat : a -> ( a, a, a ) }
+tuple3 =
+    { repeat = \v -> ( v, v, v ) }
