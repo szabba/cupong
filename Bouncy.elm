@@ -3,14 +3,14 @@
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
-module Bouncy exposing (Model, Ball, Box, Message(..), init, update, subscriptions)
+module Bouncy exposing (Model, init, Message, update, integrate)
 
 import Random
 import Time exposing (Time)
-import AnimationFrame
 import Tuple3
-import Shapes exposing (Sphere)
 import Vector exposing (Vector)
+import Bouncy.Box as Box exposing (Box)
+import Bouncy.Ball as Ball exposing (Ball)
 
 
 -- MODEL
@@ -19,18 +19,6 @@ import Vector exposing (Vector)
 type alias Model =
     { ball : Ball
     , box : Box
-    }
-
-
-type alias Ball =
-    { sphere : Sphere
-    , velocity : Vector
-    }
-
-
-type alias Box =
-    { at : Vector
-    , halfDiagonal : Vector
     }
 
 
@@ -78,18 +66,40 @@ unsafeInit :
     , halfDiagonal : Vector
     }
     -> ( Model, Cmd Message )
-unsafeInit config =
+unsafeInit { radius, halfDiagonal } =
     let
-        sphere =
-            Sphere Vector.zero config.radius
-
         ball =
-            Ball sphere Vector.zero
+            { at = Vector.zero
+            , radius = radius
+            , velocity = Vector.zero
+            }
 
         box =
-            Box Vector.zero config.halfDiagonal
+            { at = Vector.zero
+            , halfDiagonal = halfDiagonal
+            }
     in
-        ( Model ball box, resetVelocity 0.3 )
+        Model ball box ! [ resetVelocity 0.3 ]
+
+
+
+-- UPDATE
+
+
+type Message
+    = Reset { ballVelocity : Vector }
+
+
+update : Message -> Model -> Model
+update msg model =
+    case msg of
+        Reset { ballVelocity } ->
+            model |> resetBall ballVelocity
+
+
+integrate : Time -> Model -> Model
+integrate =
+    moveBall
 
 
 resetVelocity : Float -> Cmd Message
@@ -106,44 +116,13 @@ resetVelocity speed =
             |> Random.generate identity
 
 
-
--- SUBSCRIPTIONS
-
-
-subscriptions : Model -> Sub Message
-subscriptions _ =
-    AnimationFrame.diffs (\dt -> Integrate { dt = dt })
-
-
-
--- UPDATE
-
-
-type Message
-    = Reset { ballVelocity : Vector }
-    | Integrate { dt : Time }
-
-
-update : Message -> Model -> Model
-update msg model =
-    case msg of
-        Reset { ballVelocity } ->
-            model |> resetBall ballVelocity
-
-        Integrate { dt } ->
-            model |> moveBall dt
-
-
 resetBall : Vector -> Model -> Model
-resetBall newVelocity model =
+resetBall newVelocity ({ ball } as model) =
     let
-        sphere =
-            Sphere Vector.zero model.ball.sphere.radius
-
-        ball =
-            Ball sphere newVelocity
+        newBall =
+            { ball | velocity = newVelocity }
     in
-        { model | ball = ball }
+        { model | ball = newBall }
 
 
 moveBall : Time -> Model -> Model
@@ -159,12 +138,10 @@ moveBall dt ({ ball, box } as model) =
 
 
 nextCollision : Box -> Ball -> ( Ball, Time )
-nextCollision box ball =
+nextCollision box ({ radius } as ball) =
     let
-        ( inBoxAt, radius ) =
-            ( ball.sphere.at `Vector.sub` box.at
-            , ball.sphere.radius
-            )
+        inBoxAt =
+            ball.at `Vector.sub` box.at
 
         innerBox =
             { box | halfDiagonal = box.halfDiagonal `Vector.sub` Vector radius radius radius }
@@ -172,7 +149,7 @@ nextCollision box ball =
         along =
             collision1D
                 { ranges = innerBox.halfDiagonal
-                , at = ball.sphere.at
+                , at = ball.at
                 , velocity = ball.velocity
                 }
 
@@ -216,12 +193,9 @@ dumbIntegrate time ball =
             Vector.scale time ball.velocity
 
         at =
-            ball.sphere.at `Vector.add` shift
-
-        sphere =
-            Sphere at ball.sphere.radius
+            ball.at `Vector.add` shift
     in
-        { ball | sphere = sphere }
+        { ball | at = at }
 
 
 minBy : (a -> comparable) -> a -> a -> a

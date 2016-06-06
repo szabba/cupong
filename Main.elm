@@ -5,14 +5,18 @@
 
 module Main exposing (..)
 
+import AnimationFrame
 import Html as H exposing (Attribute)
 import Html.App as App
 import Html.Attributes as HA
 import Svg as S exposing (Svg)
 import Svg.Attributes as SA
 import Task
+import Time exposing (Time)
 import Window
 import Bouncy
+import Bouncy.Box as Box exposing (Box)
+import Bouncy.Ball as Ball exposing (Ball)
 import Vector exposing (Vector)
 
 
@@ -76,7 +80,7 @@ subscriptions : Model -> Sub Message
 subscriptions model =
     Sub.batch
         [ Window.resizes Resize
-        , Bouncy.subscriptions model.bouncy |> Sub.map BouncyMsg
+        , AnimationFrame.diffs Integrate
         ]
 
 
@@ -85,7 +89,8 @@ subscriptions model =
 
 
 type Message
-    = Resize { width : Int, height : Int }
+    = Integrate Time
+    | Resize { width : Int, height : Int }
     | BouncyMsg Bouncy.Message
 
 
@@ -94,6 +99,9 @@ update msg model =
     case msg of
         Resize window ->
             { model | window = window }
+
+        Integrate dt ->
+            { model | bouncy = Bouncy.integrate dt model.bouncy }
 
         BouncyMsg msg ->
             { model | bouncy = Bouncy.update msg model.bouncy }
@@ -104,19 +112,15 @@ update msg model =
 
 
 view : Model -> Svg msg
-view { window, bouncy, backScale } =
-    let
-        scale =
-            { backScale = backScale }
-    in
-        wrapWindow window
-            [ viewBox scale bouncy.box
-            , viewBall scale bouncy.box bouncy.ball
-            ]
+view ({ window, bouncy, backScale } as model) =
+    [ box model bouncy.box
+    , ball model bouncy.box bouncy.ball
+    ]
+        |> fullscreen window
 
 
-wrapWindow : WindowSize -> List (Svg msg) -> Svg msg
-wrapWindow { width, height } elements =
+fullscreen : WindowSize -> List (Svg msg) -> Svg msg
+fullscreen { width, height } elements =
     let
         baseAttributes =
             [ SA.version "1.1"
@@ -144,8 +148,8 @@ wrapWindow { width, height } elements =
         S.svg (baseAttributes ++ size ++ styling) [ S.g centering elements ]
 
 
-viewBall : { backScale : Float } -> Bouncy.Box -> Bouncy.Ball -> Svg msg
-viewBall { backScale } box ball =
+ball : { a | backScale : Float } -> Box -> Ball -> Svg msg
+ball { backScale } box ball =
     let
         zMax =
             abs box.halfDiagonal.z
@@ -158,16 +162,16 @@ viewBall { backScale } box ball =
                 ( a, b ) =
                     ( (backScale - 1) / (2 * zMax), (backScale + 1) / 2 )
             in
-                a * ball.sphere.at.z + b
+                a * ball.at.z + b
 
         ( cx, cy ) =
             ( .x, .y )
-                |> both ((|>) ball.sphere.at >> (*) scale >> round >> toString)
+                |> both ((|>) ball.at >> (*) scale >> round >> toString)
 
         geometry =
             [ SA.cx cx
             , SA.cy cy
-            , SA.r <| toString <| round <| (*) scale <| ball.sphere.radius
+            , SA.r <| toString <| round <| (*) scale <| ball.radius
             ]
 
         style =
@@ -176,8 +180,8 @@ viewBall { backScale } box ball =
         S.circle (geometry ++ style) []
 
 
-viewBox : { backScale : Float } -> Bouncy.Box -> Svg msg
-viewBox { backScale } box =
+box : { a | backScale : Float } -> Box -> Svg msg
+box { backScale } box =
     let
         rect scale =
             { width = round <| scale * 2 * abs box.halfDiagonal.x
